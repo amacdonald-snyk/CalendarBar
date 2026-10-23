@@ -20,6 +20,14 @@ struct ContentView: View {
         }
     }
 
+    /// Explicit height: a bare ScrollView collapses to nothing inside a menubar popover.
+    private var listHeight: CGFloat {
+        let rows = days.reduce(0) { $0 + $1.events.count } + pastToday.count
+        let headings = days.count + (pastToday.isEmpty ? 0 : 1)
+        let estimate = CGFloat(rows) * 46 + CGFloat(headings) * 30 + 28
+        return min(max(estimate, 60), 420)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
@@ -32,7 +40,7 @@ struct ContentView: View {
                 Divider()
             }
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 12) {
                     if !pastToday.isEmpty {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Earlier today")
@@ -55,7 +63,7 @@ struct ContentView: View {
                 }
                 .padding(12)
             }
-            .frame(maxHeight: 420)
+            .frame(height: listHeight)
             Divider()
             footer
         }
