@@ -12,6 +12,14 @@ struct ContentView: View {
         return grouped.keys.sorted().map { ($0, grouped[$0]!) }
     }
 
+    /// Today's timed meetings that have already finished.
+    private var pastToday: [CalendarEvent] {
+        let cal = Calendar.current
+        return store.events.filter {
+            !$0.isAllDay && !$0.isDeclined && $0.end <= store.now && cal.isDateInToday($0.start)
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
@@ -25,7 +33,15 @@ struct ContentView: View {
             }
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 12) {
-                    if days.isEmpty && !store.isLoading && store.errorMessage == nil {
+                    if !pastToday.isEmpty {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Earlier today")
+                                .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                                .textCase(.uppercase)
+                            ForEach(pastToday) { EventRow(event: $0, now: store.now, isPast: true) }
+                        }
+                    }
+                    if days.isEmpty && pastToday.isEmpty && !store.isLoading && store.errorMessage == nil {
                         Text("Nothing scheduled.").foregroundStyle(.secondary).padding(.top, 8)
                     }
                     ForEach(days, id: \.day) { section in
@@ -83,12 +99,13 @@ struct ContentView: View {
 struct EventRow: View {
     let event: CalendarEvent
     let now: Date
+    var isPast = false
 
     var body: some View {
         let live = !event.isAllDay && event.start <= now && event.end > now
         HStack(alignment: .top, spacing: 8) {
             RoundedRectangle(cornerRadius: 2)
-                .fill(live ? Color.green : Color.accentColor)
+                .fill(isPast ? Color.secondary.opacity(0.4) : live ? Color.green : Color.accentColor)
                 .frame(width: 3)
             VStack(alignment: .leading, spacing: 1) {
                 Text(event.title).lineLimit(2)
@@ -99,6 +116,7 @@ struct EventRow: View {
             }
             Spacer(minLength: 0)
         }
+        .opacity(isPast ? 0.6 : 1)
         .contentShape(Rectangle())
         .onTapGesture { if let link = event.link { NSWorkspace.shared.open(link) } }
     }
