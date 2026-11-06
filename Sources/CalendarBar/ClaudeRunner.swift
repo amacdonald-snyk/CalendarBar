@@ -27,8 +27,9 @@ enum ClaudeRunner {
         between \(f.string(from: from)) and \(f.string(from: to)) (timezone \(TimeZone.current.identifier)). \
         Skip cancelled events. Reply with ONLY a JSON array, no prose and no code fences. Each element: \
         {"id":string,"title":string,"start":ISO8601 with offset (date-only YYYY-MM-DD for all-day),\
-        "end":same,"allDay":bool,"location":string|null,"link":string|null,"declined":bool}. \
-        "declined" is true if I declined the invite.
+        "end":same,"allDay":bool,"location":string|null,"link":string|null,"declined":bool,"calendar":string}. \
+        "declined" is true if I declined the invite. "calendar" is the display name of the calendar the event is on \
+        (for example "TSM AMER OOO Calendar"). Include the "TSM AMER OOO Calendar" calendar if I have access to it.
         """
         var args = ["-p", prompt,
                     "--output-format", "json",

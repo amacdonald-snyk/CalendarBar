@@ -7,7 +7,7 @@ struct ContentView: View {
 
     private var days: [(day: Date, events: [CalendarEvent])] {
         let cal = Calendar.current
-        let visible = store.events.filter { $0.end > store.now && !$0.isDeclined }
+        let visible = store.events.filter { !$0.isOOO && $0.end > store.now && !$0.isDeclined }
         let grouped = Dictionary(grouping: visible) { cal.startOfDay(for: max($0.start, cal.startOfDay(for: store.now))) }
         return grouped.keys.sorted().map { ($0, grouped[$0]!) }
     }
@@ -16,14 +16,19 @@ struct ContentView: View {
     private var pastToday: [CalendarEvent] {
         let cal = Calendar.current
         return store.events.filter {
-            !$0.isAllDay && !$0.isDeclined && $0.end <= store.now && cal.isDateInToday($0.start)
+            !$0.isOOO && !$0.isAllDay && !$0.isDeclined && $0.end <= store.now && cal.isDateInToday($0.start)
         }
+    }
+
+    /// Team out-of-office notices that haven't finished yet.
+    private var oooEvents: [CalendarEvent] {
+        store.events.filter { $0.isOOO && $0.end > store.now }
     }
 
     /// Explicit height: a bare ScrollView collapses to nothing inside a menubar popover.
     private var listHeight: CGFloat {
-        let rows = days.reduce(0) { $0 + $1.events.count } + pastToday.count
-        let headings = days.count + (pastToday.isEmpty ? 0 : 1)
+        let rows = days.reduce(0) { $0 + $1.events.count } + pastToday.count + oooEvents.count
+        let headings = days.count + (pastToday.isEmpty ? 0 : 1) + (oooEvents.isEmpty ? 0 : 1)
         let estimate = CGFloat(rows) * 46 + CGFloat(headings) * 30 + 28
         return min(max(estimate, 60), 420)
     }
@@ -49,7 +54,7 @@ struct ContentView: View {
                             ForEach(pastToday) { EventRow(event: $0, now: store.now, isPast: true) }
                         }
                     }
-                    if days.isEmpty && pastToday.isEmpty && !store.isLoading && store.errorMessage == nil {
+                    if days.isEmpty && pastToday.isEmpty && oooEvents.isEmpty && !store.isLoading && store.errorMessage == nil {
                         Text("Nothing scheduled.").foregroundStyle(.secondary).padding(.top, 8)
                     }
                     ForEach(days, id: \.day) { section in
@@ -59,6 +64,17 @@ struct ContentView: View {
                                 .textCase(.uppercase)
                             ForEach(section.events) { EventRow(event: $0, now: store.now) }
                         }
+                    }
+                    if !oooEvents.isEmpty {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Team out of office")
+                                .font(.caption.weight(.semibold)).foregroundStyle(.red)
+                                .textCase(.uppercase)
+                            ForEach(oooEvents) { EventRow(event: $0, now: store.now) }
+                        }
+                        .padding(8)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(RoundedRectangle(cornerRadius: 8).fill(Color.red.opacity(0.14)))
                     }
                 }
                 .padding(12)
@@ -130,8 +146,19 @@ struct EventRow: View {
     }
 
     private var timeText: String {
+        if event.isOOO { return oooDates }
         if event.isAllDay { return "All day" }
         let t = Date.FormatStyle(date: .omitted, time: .shortened)
         return "\(event.start.formatted(t)) – \(event.end.formatted(t))"
+    }
+
+    /// All-day end dates are exclusive, so step back a day for display.
+    private var oooDates: String {
+        let d = Date.FormatStyle().month(.abbreviated).day().weekday(.abbreviated)
+        let last = event.isAllDay ? (Calendar.current.date(byAdding: .day, value: -1, to: event.end) ?? event.end) : event.end
+        if Calendar.current.isDate(event.start, inSameDayAs: last) {
+            return event.isAllDay ? event.start.formatted(d) : "\(event.start.formatted(d)), \(event.start.formatted(date: .omitted, time: .shortened)) – \(event.end.formatted(date: .omitted, time: .shortened))"
+        }
+        return "\(event.start.formatted(d)) – \(last.formatted(d))"
     }
 }

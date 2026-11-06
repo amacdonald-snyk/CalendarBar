@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import ServiceManagement
 
 struct CalendarEvent: Identifiable, Hashable {
     let id: String
@@ -11,6 +12,10 @@ struct CalendarEvent: Identifiable, Hashable {
     let link: URL?
 
     var isDeclined: Bool = false
+    var calendar: String = ""
+
+    /// Team out-of-office notices (the "TSM AMER OOO Calendar").
+    var isOOO: Bool { calendar.localizedCaseInsensitiveContains("OOO") }
 }
 
 @MainActor
@@ -38,10 +43,24 @@ final class CalendarStore: ObservableObject {
         Task { await refresh() }
     }
 
+    // MARK: - Launch at login
+
+    var launchAtLogin: Bool {
+        get { SMAppService.mainApp.status == .enabled }
+        set {
+            do {
+                if newValue { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
+            } catch {
+                errorMessage = "Couldn't change launch at login: \(error.localizedDescription)"
+            }
+            objectWillChange.send()
+        }
+    }
+
     // MARK: - Menubar title
 
     var upcoming: [CalendarEvent] {
-        events.filter { !$0.isAllDay && $0.end > now && !$0.isDeclined }
+        events.filter { !$0.isOOO && !$0.isAllDay && $0.end > now && !$0.isDeclined }
     }
 
     var menuBarTitle: String {
@@ -99,6 +118,7 @@ final class CalendarStore: ObservableObject {
                 link: (e["link"] as? String).flatMap(URL.init(string:))
             )
             ev.isDeclined = e["declined"] as? Bool ?? false
+            ev.calendar = e["calendar"] as? String ?? ""
             return ev
         }
         .sorted { ($0.start, $0.title) < ($1.start, $1.title) }

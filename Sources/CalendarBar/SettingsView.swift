@@ -10,6 +10,7 @@ struct SettingsView: View {
                 TextField("Model", text: store.binding(\.claudeModel), prompt: Text("sonnet"))
                 Stepper("Days ahead: \(store.daysAhead)", value: store.binding(\.daysAhead), in: 1...30)
             }
+            Toggle("Launch at login", isOn: store.binding(\.launchAtLogin))
             Text("Events are fetched by running `claude -p`, which uses your Claude account's own Google Calendar connector. Make sure it's connected in claude.ai. Refreshes every 10 minutes.")
                 .font(.caption).foregroundStyle(.secondary)
             Button("Save & Refresh") { Task { await store.refresh() } }
